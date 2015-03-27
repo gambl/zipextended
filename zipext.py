@@ -2,7 +2,6 @@ import io
 import os
 import zipfile
 import tempfile
-import zipext
 import types
 from zipfile import ZipFile
 from zipfile import (ZIP_DEFLATED, ZIP_STORED, ZIP_LZMA, ZIP64_LIMIT)

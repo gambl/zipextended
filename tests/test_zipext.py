@@ -1,4 +1,3 @@
-#from test import test_zipfile
 import zipext
 import zipfile
 import unittest
