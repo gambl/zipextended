@@ -7,7 +7,27 @@ from zipfile import ZipFile
 from zipfile import (ZIP_DEFLATED, ZIP_STORED, ZIP_LZMA, ZIP64_LIMIT)
 
 class ZipFileExt(ZipFile):
+    """
+        Class with methods to open, read, write, remove, rename, close and list Zip files.
 
+        zip = ZipFileExt(file,mode="r", compression=ZIP_STORED, allowZip64=True)
+
+
+        file: Either the path to the file, or a file-like object.
+              If it is a path, the file will be opened and closed by UCF.
+
+        mode: The mode can be either read "r", write "w" or append "a".
+
+        compression: The compression type to be used for this archive.
+                     e.g. zipfile.ZIP_STORED (no compression),
+                     zipfile.ZIP_DEFLATED (requires zlib).
+
+
+        allowZip64: if True ZipFile will create files with ZIP64 extensions when
+                    needed, otherwise it will raise an exception when this would
+                    be necessary.
+
+        """
     def __init__(self, file, mode="r", compression=zipfile.ZIP_STORED, allowZip64=True):
         super().__init__(file,mode=mode,compression=compression,allowZip64=allowZip64)
         self.requires_commit = False
