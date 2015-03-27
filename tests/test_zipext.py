@@ -1,4 +1,4 @@
-import zipext
+from zipfileext import zipext
 import zipfile
 import unittest
 from tempfile import TemporaryFile
