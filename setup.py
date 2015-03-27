@@ -6,6 +6,6 @@ setup(name='zipfileext',
       author='Matthew Gamble',
       author_email='matthew.gamble@gmail.com',
       url='https://github.com/gambl/zipfileext',
-      packages=['zipfileext', 'zipfileext.tests'],
+      packages=['zipfileext'],
       package_dir={'zipfileext': '.'},
      )
