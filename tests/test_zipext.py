@@ -8,7 +8,7 @@ from tempfile import NamedTemporaryFile
 import io
 import os
 
-from tests.support import (TESTFN, TESTFN2, unlink, get_files)
+from .support import (TESTFN, TESTFN2, unlink, get_files)
 
 class AbstractZipExtTestWithSourceFile:
 
