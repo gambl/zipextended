@@ -111,6 +111,7 @@ class ZipFileExt(ZipFile):
             for fileinfo in zipf.infolist():
                 bytes = zipf.read_compressed(fileinfo.filename)
                 new_zip.write_compressed(fileinfo,bytes)
+        with ZipFileExt(file,mode="r") as new_zip:
             badfile = new_zip.testzip()
         if(badfile):
             raise zipfile.BadZipFile("Error when cloning zipfile, failed zipfile check: {} file is corrupt".format(badfile))
