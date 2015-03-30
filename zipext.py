@@ -190,11 +190,9 @@ class ZipFileExt(ZipFile):
         else:
             #We are copying the whole thing with no modifications - just copy
             if isinstance(file,str):
-                fp = open(file)
+                fp = open(file,'wb')
             else:
                 fp = file
-
-            #if seekable?
             zipf.fp.seek(0)
             shutil.copyfileobj(zipf.fp,fp)
 
