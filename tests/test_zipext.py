@@ -8,7 +8,8 @@ from tempfile import NamedTemporaryFile
 import io
 import os
 
-from .support import (TESTFN, TESTFN2, unlink, get_files)
+from .support import (TESTFN, TESTFN2, unlink, get_files,requires_zlib,
+                      requires_gzip, requires_bz2, requires_lzma)
 
 class AbstractZipExtTestWithSourceFile:
 
@@ -193,3 +194,18 @@ class AbstractZipExtTestWithSourceFile:
 class StoredZipExtTestWithSourceFile(AbstractZipExtTestWithSourceFile,unittest.TestCase):
 
     compression = zipfile.ZIP_STORED
+
+@requires_zlib
+class DeflateTestsWithSourceFile(AbstractZipExtTestWithSourceFile,
+                                 unittest.TestCase):
+    compression = zipfile.ZIP_DEFLATED
+
+@requires_bz2
+class Bzip2TestsWithSourceFile(AbstractZipExtTestWithSourceFile,
+                               unittest.TestCase):
+    compression = zipfile.ZIP_BZIP2
+
+@requires_lzma
+class LzmaTestsWithSourceFile(AbstractZipExtTestWithSourceFile,
+                              unittest.TestCase):
+    compression = zipfile.ZIP_LZMA
