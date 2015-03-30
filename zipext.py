@@ -341,5 +341,7 @@ def _read1(self, n, decompress=True):
     self._left -= len(data)
     if self._left <= 0:
         self._eof = True
-    self._update_crc(data)
+    #We can only check the crc if we are decompressing
+    if decompress:
+        self._update_crc(data)
     return data
