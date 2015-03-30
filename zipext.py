@@ -34,6 +34,17 @@ class ZipFileExt(ZipFile):
         self.requires_commit = False
 
     def remove(self, zinfo_or_arcname):
+        """
+        Remove a member from the archive.
+
+        Args:
+          zinfo_or_arcname (ZipInfo, str) ZipInfo object or filename of the
+            member.
+
+        Raises:
+          RuntimeError: If attempting to modify an Zip archive that is closed.
+        """
+        
         if not self.fp:
             raise RuntimeError(
                 "Attempt to modify to ZIP archive that was already closed")
@@ -49,6 +60,18 @@ class ZipFileExt(ZipFile):
         self.requires_commit = True
 
     def rename(self, zinfo_or_arcname, filename):
+        """
+        Rename a member in the archive.
+
+        Args:
+          zinfo_or_arcname (ZipInfo, str): ZipInfo object or filename of the
+            member.
+          filename (str): the new name for the member.
+
+        Raises:
+          RuntimeError: If attempting to modify an Zip archive that is closed.
+        """
+
         if not self.fp:
             raise RuntimeError(
                 "Attempt to modify to ZIP archive that was already closed")
@@ -77,13 +100,13 @@ class ZipFileExt(ZipFile):
 
 
     def close(self):
-        """Close the file, and for mode "w" and "a" write the ending
+        """Close the file, and for mode "w", 'x' and "a" write the ending
         records."""
         if self.fp is None:
             return
 
         try:
-            if self.mode in ("w", "a") and self._didModify: # write ending records
+            if self.mode in ("w", "a", 'x') and self._didModify: # write ending records
 
                 if self.requires_commit:
                     # Commit will create a new zipfile and swap it in for this
@@ -110,8 +133,17 @@ class ZipFileExt(ZipFile):
     # byte for byte copy.
     @classmethod
     def clone(cls, zipf, file, filenames_or_infolist=None):
-        """ Clone the zip file zipf to file (filename or filepointer) and return a
-            handle to the new cloned ZipFile open in append mode.
+        """ Clone the a zip file using the given file (filename or filepointer).
+
+        Args:
+          zipf (ZipFile): the ZipFile to be cloned.
+          file (File, str): file-like object or filename of file to write the
+            new zip file to.
+          filenames_or_infolist (list(str), list(ZipInfo), optional): list of
+            members from zipf to include in the new zip file.
+
+        Returns:
+            At new ZipFile object of the cloned zipfile open in append mode.
         """
         if filenames_or_infolist or zipf.requires_commit:
             if filenames_or_infolist is None:
