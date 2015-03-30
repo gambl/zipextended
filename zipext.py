@@ -51,6 +51,8 @@ class ZipFileExt(ZipFile):
 
         if isinstance(zinfo_or_arcname, zipfile.ZipInfo):
             zinfo = zinfo_or_arcname
+            #perform an existence check
+            self.getinfo(zinfo.filename)
         else:
             zinfo = self.getinfo(zinfo_or_arcname)
 
@@ -89,6 +91,8 @@ class ZipFileExt(ZipFile):
 
         if isinstance(zinfo_or_arcname, zipfile.ZipInfo):
             zinfo = zinfo_or_arcname
+            #perform an existence check
+            self.getinfo(zinfo.filename)
         else:
             zinfo = self.getinfo(zinfo_or_arcname)
 
