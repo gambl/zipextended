@@ -184,7 +184,35 @@ class AbstractZipExtTestWithSourceFile:
             zipfp.testzip()
 
     def test_remove_nonexistent_file(self):
-        pass
+        for f in get_files(self):
+            print("Remove non-existent file from zipfile of FileType - ", f)
+            self.zip_remove_nonexistent_file_test(f,self.compression)
+
+    def zip_remove_nonexistent_file_test(self, f, compression):
+        self.make_test_archive(f,compression)
+
+        with zipext.ZipFileExt(f, "a", compression) as zipfp:
+            self.assertEqual(zipfp.read(TESTFN), self.data)
+            self.assertEqual(zipfp.read("another.name"), self.data)
+            self.assertEqual(zipfp.read("strfile"), self.data)
+            with self.assertRaises(KeyError):
+                zipfp.remove("non.existent.file")
+
+    def test_rename_nonexistent_file(self):
+        for f in get_files(self):
+            print("Rename non-existent file from zipfile of FileType - ", f)
+            self.zip_remove_nonexistent_file_test(f,self.compression)
+
+    def zip_rename_nonexistent_file_test(self, f, compression):
+        self.make_test_archive(f,compression)
+
+        with zipext.ZipFileExt(f, "a", compression) as zipfp:
+            self.assertEqual(zipfp.read(TESTFN), self.data)
+            self.assertEqual(zipfp.read("another.name"), self.data)
+            self.assertEqual(zipfp.read("strfile"), self.data)
+            TESTFN_NEW = ''.join(["new",TESTFN])
+            with self.assertRaises(KeyError):
+                zipfp.rename("non.existent.file",TESTFN_NEW)
 
     def tearDown(self):
         unlink(TESTFN)
