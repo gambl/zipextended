@@ -33,6 +33,26 @@ class ZipFileExt(ZipFile):
         super().__init__(file,mode=mode,compression=compression,allowZip64=allowZip64)
         self.requires_commit = False
 
+
+    def _renamecheck(self, filename):
+        """Check for errors before writing a file to the archive."""
+        if filename in self.NameToInfo:
+            import warnings
+            warnings.warn('Duplicate name: %r' % zinfo.filename, stacklevel=3)
+        if self.mode not in ('w', 'x', 'a'):
+            raise RuntimeError("rename() requires mode 'w', 'x', or 'a'")
+        if not self.fp:
+            raise RuntimeError(
+                "Attempt to modify ZIP archive that was already closed")
+
+    def _removecheck(self):
+        """Check for errors before writing a file to the archive."""
+        if self.mode not in ('w', 'x', 'a'):
+            raise RuntimeError("rename() requires mode 'w', 'x', or 'a'")
+        if not self.fp:
+            raise RuntimeError(
+                "Attempt to modify ZIP archive that was already closed")
+
     def remove(self, zinfo_or_arcname):
         """
         Remove a member from the archive.
@@ -44,10 +64,12 @@ class ZipFileExt(ZipFile):
         Raises:
           RuntimeError: If attempting to modify an Zip archive that is closed.
         """
-        
+
         if not self.fp:
             raise RuntimeError(
                 "Attempt to modify to ZIP archive that was already closed")
+
+        self._removecheck()
 
         if isinstance(zinfo_or_arcname, zipfile.ZipInfo):
             zinfo = zinfo_or_arcname
@@ -77,6 +99,8 @@ class ZipFileExt(ZipFile):
         if not self.fp:
             raise RuntimeError(
                 "Attempt to modify to ZIP archive that was already closed")
+
+        self._renamecheck(filename)
 
         # Terminate the file name at the first null byte.  Null bytes in file
         # names are used as tricks by viruses in archives.
