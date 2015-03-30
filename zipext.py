@@ -3,6 +3,7 @@ import os
 import zipfile
 import tempfile
 import types
+import shutil
 from zipfile import ZipFile
 from zipfile import (ZIP_DEFLATED, ZIP_STORED, ZIP_LZMA, ZIP64_LIMIT)
 
@@ -105,14 +106,40 @@ class ZipFileExt(ZipFile):
 
     #TODO: Let clone take a filter for the files to include?
     #TODO: need to instead validate *after* the file has closed?
+    #TODO: if we aren't filtering, then we can just perform a straight
+    # byte for byte copy.
     @classmethod
-    def clone(cls, zipf, file):
-        with ZipFileExt(file,mode="w") as new_zip:
-            for fileinfo in zipf.infolist():
-                bytes = zipf.read_compressed(fileinfo.filename)
-                new_zip.write_compressed(fileinfo,bytes)
-        with ZipFileExt(file,mode="r") as new_zip:
-            badfile = new_zip.testzip()
+    def clone(cls, zipf, file, filenames_or_infolist=None):
+        """ Clone the zip file zipf to file (filename or filepointer) and return a
+            handle to the new cloned ZipFile open in append mode.
+        """
+        if filenames_or_infolist or zipf.requires_commit:
+            if filenames_or_infolist is None:
+                filenames_or_infolist = zipf.infolist()
+            # if we are filtering based on filenames or need to commit changes
+            # then create via ZipFile
+            with ZipFileExt(file,mode="w") as new_zip:
+                if isinstance(filenames_or_infolist[0], zipfile.ZipInfo):
+                    infolist = filenames_or_infolist
+                else:
+                    infolist = [zipinfo for zipinfo in zipf.infolist() if zipinfo.filename in filenames_or_infolist]
+
+                for zipinfo in infolist:
+                    bytes = zipf.read_compressed(zipinfo.filename)
+                    new_zip.write_compressed(zipinfo,bytes)
+        else:
+            #We are copying the whole thing with no modifications - just copy
+            if isinstance(file,str):
+                fp = open(file)
+            else:
+                fp = file
+
+            #if seekable?
+            zipf.fp.seek(0)
+            shutil.copyfileobj(zipf.fp,fp)
+
+        new_zip = ZipFileExt(file,mode="a")
+        badfile = new_zip.testzip()
         if(badfile):
             raise zipfile.BadZipFile("Error when cloning zipfile, failed zipfile check: {} file is corrupt".format(badfile))
         return new_zip
@@ -206,7 +233,7 @@ class ZipFileExt(ZipFile):
             old.close()
             #Set up to write new bytes
             self.fp.seek(0)
-            self.fp.truncate()
+            self.fp.truncate() #might be shorter so truncate
             with open(new_zip.filename,'rb') as fp:
                 for b in fp:
                     self.fp.write(b)
