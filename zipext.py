@@ -195,7 +195,6 @@ class ZipFileExt(ZipFile):
         if not self.fp:
             raise RuntimeError(
                 "Attempt to write to ZIP archive that was already closed")
-        zinfo.file_size = len(data)            # Uncompressed size
 
         with self._lock:
             try:
