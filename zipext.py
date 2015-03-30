@@ -155,10 +155,7 @@ class ZipFileExt(ZipFile):
             self.fp = None
             self._fpclose(fp)
 
-    #TODO: Let clone take a filter for the files to include?
-    #TODO: need to instead validate *after* the file has closed?
-    #TODO: if we aren't filtering, then we can just perform a straight
-    # byte for byte copy.
+
     @classmethod
     def clone(cls, zipf, file, filenames_or_infolist=None):
         """ Clone the a zip file using the given file (filename or filepointer).
@@ -265,9 +262,18 @@ class ZipFileExt(ZipFile):
 
 
     def reset(self):
-        #TODO instead of reusing __init__ it would be nicer to establish
-        #what really needs doing to reset.
-        self.__init__(file=self.fp,mode='a',compression=self.compression,allowZip64=self._allowZip64)
+    #    start_dir = self.start_dir #TODO might not be the right start_dir?
+    #    self.__init__(file=self.fp,mode=self.mode,compression=self.compression,allowZip64=self._allowZip64)
+    #    if self.mode in ('w', 'x', 'a'):
+         # seek to start of directory
+    #        self.fp.seek(start_dir)
+        self._didModify = False
+        self.requires_commit = False
+        # See if file is a zip file
+        self._RealGetContents()
+        # seek to start of directory and overwrite
+        self.fp.seek(self.start_dir)
+
 
     def commit(self):
         #Do we need to try to create the temp files in the same directory initially?
