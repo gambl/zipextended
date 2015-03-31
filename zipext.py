@@ -267,50 +267,80 @@ class ZipFileExt(ZipFile):
 
 
     def reset(self):
-    #    start_dir = self.start_dir #TODO might not be the right start_dir?
-    #    self.__init__(file=self.fp,mode=self.mode,compression=self.compression,allowZip64=self._allowZip64)
-    #    if self.mode in ('w', 'x', 'a'):
-         # seek to start of directory
-    #        self.fp.seek(start_dir)
+        #Reset modification and commit flags
         self._didModify = False
         self.requires_commit = False
-        # See if file is a zip file
+        # Reread contents
         self._RealGetContents()
-        # seek to start of directory and overwrite
+        # seek to start of directory ready for subsequent writes
         self.fp.seek(self.start_dir)
 
 
     def commit(self):
-        #Do we need to try to create the temp files in the same directory initially?
-        new_zip = self.clone(self,tempfile.NamedTemporaryFile(delete=False))
-        old = tempfile.NamedTemporaryFile(delete=False)
-        #Is this a File?
-        if isinstance(self.filename,str) and self.filename is not None and os.path.exists(self.filename):
+        #zip will be validated by clone
+        #Try to create tempfiles in same directory first
+        if not self._filePassed:
+            dir = os.path.dirname(self.filename)
+        else:
+            dir = None
+        try:
+            clonefp = tempfile.NamedTemporaryFile(dir=dir, delete=False)
+            backupfp = tempfile.NamedTemporaryFile(dir=dir, delete=False)
+        except:
+            clonefp = tempfile.NamedTemporaryFile(delete=False)
+            backupfp = tempfile.NamedTemporaryFile(delete=False)
+
+        #clone the zip to create the up-to-date version - will verify and raise BadZipFile
+        #error if it fails
+        clone = self.clone(self,clonefp)
+
+        #Now we need to move files around
+        #Is this a real file, and does it live on the same mount point?
+        if not self._filePassed and os.path.exists(self.filename) and (find_mount_point(self.filename) == find_mount_point(clone.filename)):
             #if things are filebased then we can used the OS to move files around.
-            #mv self.filename to old, new to self.filename, and then remove old
-            old.close()
-            os.rename(self.filename,old.name)
-            os.rename(new_zip.filename,self.filename)
-            self.reset()
+            #mv self.filename to backupfp, new to self.filename, and then remove backupfp
+            backupfp.close()
+            try:
+                os.rename(self.filename, backupfp.name)
+            except:
+                raise RuntimeError("Failed to commit updates to zipfile")
+            try:
+                os.rename(clone.filename, self.filename)
+                self.reset()
+            except:
+                os.rename(backupfp.name, self.filename)
+                raise RuntimeError("Failed to commit updates to zipfile")
         #Is it a file-like stream?
         elif hasattr(self.fp,'write'):
-            #Not a file but has write, looks like self.fp is a stream
-            self.fp.seek(0)
-            for b in self.fp:
-                old.write(b)
-            old.close()
-            #Set up to write new bytes
-            self.fp.seek(0)
-            self.fp.truncate() #might be shorter so truncate
-            with open(new_zip.filename,'rb') as fp:
-                for b in fp:
+            #self.fp is a stream or lives on another mount point
+            try:
+                self.fp.seek(0)
+                for b in self.fp:
+                    backupfp.write(b)
+            except:
+                raise RuntimeError("Failed to commit updates to zipfile")
+            try:
+                #Set up to write new bytes
+                self.fp.seek(0)
+                self.fp.truncate() #might be shorter so truncate
+                with open(clone.filename,'rb') as fp:
+                    for b in fp:
+                        self.fp.write(b)
+                self.reset()
+            except:
+                backupfp.seek(0)
+                self.fp.seek(0)
+                for b in backup.fp:
                     self.fp.write(b)
-            self.reset()
-
-            #cleanup
-            if os.path.exists(old.name):
-                #TODO check valid zip again before we unlink the old?
-                os.unlink(old.name)
+                backupfp.close()
+                raise RuntimeError("Failed to commit updates to zipfile")
+            backupfp.close()
+        else:
+            #failed to commit
+            raise RuntimeError("Failed to commit updates to zipfile")
+        #cleanup
+        if os.path.exists(backupfp.name):
+            os.unlink(backupfp.name)
 
 def read(self, n=-1, decompress=True):
     """Read and return up to n bytes.
@@ -382,3 +412,9 @@ def _read1(self, n, decompress=True):
     if decompress:
         self._update_crc(data)
     return data
+
+def find_mount_point(path):
+    path = os.path.abspath(path)
+    while not os.path.ismount(path):
+        path = os.path.dirname(path)
+    return path
