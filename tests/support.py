@@ -45,6 +45,7 @@ TESTFN = '@test'
 TESTFN = "{}_{}_tmp".format(TESTFN, os.getpid())
 
 TESTFN2 = TESTFN + "2"
+TESTFN3 = TESTFN + "3"
 
 def unlink(filename):
     try:
