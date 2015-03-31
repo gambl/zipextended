@@ -102,12 +102,10 @@ class AbstractZipExtTestWithSourceFile:
 
     def test_remove_file_from_existing(self):
         for f in get_files(self):
-            print("Remove from zipfile of FileType - ", f)
             self.zip_remove_file_from_existing_test(f,self.compression)
 
     def test_rename_file_in_existing(self):
         for f in get_files(self):
-            print("Rename in zipfile of FileType - ", f)
             self.zip_rename_file_in_existing_test(f,self.compression)
 
     def zip_rename_file_in_existing_test(self, f, compression):
@@ -185,7 +183,6 @@ class AbstractZipExtTestWithSourceFile:
 
     def test_remove_nonexistent_file(self):
         for f in get_files(self):
-            print("Remove non-existent file from zipfile of FileType - ", f)
             self.zip_remove_nonexistent_file_test(f,self.compression)
 
     def zip_remove_nonexistent_file_test(self, f, compression):
@@ -200,7 +197,6 @@ class AbstractZipExtTestWithSourceFile:
 
     def test_rename_nonexistent_file(self):
         for f in get_files(self):
-            print("Rename non-existent file from zipfile of FileType - ", f)
             self.zip_remove_nonexistent_file_test(f,self.compression)
 
     def zip_rename_nonexistent_file_test(self, f, compression):
@@ -261,26 +257,26 @@ class AbstractZipExtTestWithSourceFile:
 
     def zip_clone_with_filenames_test(self, f, compression):
         self.make_test_archive(f,compression)
-        f = zipext.ZipFileExt(f)
-        with zipext.ZipFileExt.clone(f,TESTFN3,["another.name","strfile"]) as zipfp:
-            # Check the namelist
-            names = zipfp.namelist()
-            self.assertEqual(len(names), 2)
-            #Check remaining data
-            self.assertEqual(zipfp.read("another.name"), self.data)
-            self.assertEqual(zipfp.read("strfile"), self.data)
+        with zipext.ZipFileExt(f) as f:
+            with zipext.ZipFileExt.clone(f,TESTFN3,["another.name","strfile"]) as zipfp:
+                # Check the namelist
+                names = zipfp.namelist()
+                self.assertEqual(len(names), 2)
+                #Check remaining data
+                self.assertEqual(zipfp.read("another.name"), self.data)
+                self.assertEqual(zipfp.read("strfile"), self.data)
 
+                # Check present files
+                self.assertIn("another.name", names)
+                self.assertIn("strfile", names)
+                self.assertNotIn(TESTFN, names)
+                # Check infolist
+                infos = zipfp.infolist()
+                names = [i.filename for i in infos]
+                self.assertEqual(len(names), 2)
+                for i in infos:
+                    self.assertEqual(i.file_size, len(self.data))
 
-            # Check present files
-            self.assertIn("another.name", names)
-            self.assertIn("strfile", names)
-            self.assertNotIn(TESTFN, names)
-            # Check infolist
-            infos = zipfp.infolist()
-            names = [i.filename for i in infos]
-            self.assertEqual(len(names), 2)
-            for i in infos:
-                self.assertEqual(i.file_size, len(self.data))
 
     def test_clone_with_fileinfos(self):
         for f in get_files(self):
@@ -313,6 +309,7 @@ class AbstractZipExtTestWithSourceFile:
     def tearDown(self):
         unlink(TESTFN)
         unlink(TESTFN2)
+        unlink(TESTFN3)
 
 
 class StoredZipExtTestWithSourceFile(AbstractZipExtTestWithSourceFile,unittest.TestCase):
