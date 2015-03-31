@@ -185,13 +185,14 @@ class ZipFileExt(ZipFile):
                     bytes = zipf.read_compressed(zipinfo.filename)
                     new_zip.write_compressed(zipinfo,bytes)
         else:
-            #We are copying the whole thing with no modifications - just copy
+            #We are copying with no modifications - just copy bytes
             if isinstance(file,str):
-                fp = open(file,'wb')
+                fp = open(file,'wb+')
             else:
                 fp = file
             zipf.fp.seek(0)
             shutil.copyfileobj(zipf.fp,fp)
+            fp.seek(0)
 
         new_zip = ZipFileExt(file,mode="a")
         badfile = new_zip.testzip()
