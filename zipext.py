@@ -169,13 +169,16 @@ class ZipFileExt(ZipFile):
 
         Returns:
             At new ZipFile object of the cloned zipfile open in append mode.
+
+        Raises:
+            BadZipFile exception.
         """
         if filenames_or_infolist or zipf.requires_commit:
             if filenames_or_infolist is None:
                 filenames_or_infolist = zipf.infolist()
             # if we are filtering based on filenames or need to commit changes
             # then create via ZipFile
-            with ZipFileExt(file,mode="w") as new_zip:
+            with ZipFileExt(file,mode="w") as clone:
                 if isinstance(filenames_or_infolist[0], zipfile.ZipInfo):
                     infolist = filenames_or_infolist
                 else:
@@ -183,22 +186,23 @@ class ZipFileExt(ZipFile):
 
                 for zipinfo in infolist:
                     bytes = zipf.read_compressed(zipinfo.filename)
-                    new_zip.write_compressed(zipinfo,bytes)
+                    clone.write_compressed(zipinfo,bytes)
         else:
             #We are copying with no modifications - just copy bytes
+            zipf.fp.seek(0)
             if isinstance(file,str):
-                fp = open(file,'wb+')
+                with open(file,'wb+') as fp:
+                    shutil.copyfileobj(zipf.fp,fp)
             else:
                 fp = file
-            zipf.fp.seek(0)
-            shutil.copyfileobj(zipf.fp,fp)
-            fp.seek(0)
+                shutil.copyfileobj(zipf.fp,fp)
+                fp.seek(0)
 
-        new_zip = ZipFileExt(file,mode="a")
-        badfile = new_zip.testzip()
+        clone = ZipFileExt(file,mode="a",compression=zipf.compression,allowZip64=zipf._allowZip64)
+        badfile = clone.testzip()
         if(badfile):
             raise zipfile.BadZipFile("Error when cloning zipfile, failed zipfile check: {} file is corrupt".format(badfile))
-        return new_zip
+        return clone
 
     def read_compressed(self, name, pwd=None):
         """Return file bytes uncompressed for name."""
