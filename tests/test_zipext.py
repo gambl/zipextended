@@ -330,3 +330,24 @@ class Bzip2TestsWithSourceFile(AbstractZipExtTestWithSourceFile,
 class LzmaTestsWithSourceFile(AbstractZipExtTestWithSourceFile,
                               unittest.TestCase):
     compression = zipfile.ZIP_LZMA
+
+class TestsWithLargeSourceFile(unittest.TestCase):
+
+    def setUp(self):
+        # Create test data.
+        line_gen = ("Test of zipfile line %d." % i for i in range(1000000))
+        self.data = '\n'.join(line_gen).encode('ascii')
+
+        # And write it to a file.
+        fp = open(TESTFN, "wb")
+        fp.write(self.data)
+        fp.close()
+
+class StoredZipExtTestWithLargeSourceFile(TestsWithLargeSourceFile, AbstractZipExtTestWithSourceFile,unittest.TestCase):
+
+    compression = zipfile.ZIP_STORED
+
+@requires_zlib
+class DeflateTestsWithLargeSourceFile(TestsWithLargeSourceFile, AbstractZipExtTestWithSourceFile,
+                                 unittest.TestCase):
+    compression = zipfile.ZIP_DEFLATED

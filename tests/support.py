@@ -41,7 +41,7 @@ requires_lzma = unittest.skipUnless(lzma, 'requires lzma')
 
 
 
-TESTFN = '@test'
+TESTFN = '.@test'
 TESTFN = "{}_{}_tmp".format(TESTFN, os.getpid())
 
 TESTFN2 = TESTFN + "2"
