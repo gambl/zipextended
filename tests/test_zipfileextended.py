@@ -1,4 +1,4 @@
-from zipfileext import zipext
+from zipextended import zipfileextended
 import zipfile
 import unittest
 from tempfile import TemporaryFile
@@ -27,7 +27,7 @@ class AbstractZipExtTestWithSourceFile:
 
     def make_test_archive(self, f, compression):
         # Create the ZIP archive
-        with zipext.ZipFileExt(f, "w", compression) as zipfp:
+        with zipfileextended.ZipFileExtended(f, "w", compression) as zipfp:
             zipfp.write(TESTFN, "another.name")
             zipfp.write(TESTFN, TESTFN)
             zipfp.writestr("strfile", self.data)
@@ -36,7 +36,7 @@ class AbstractZipExtTestWithSourceFile:
     def zip_remove_file_from_existing_test(self,f,compression):
         self.make_test_archive(f,compression)
 
-        with zipext.ZipFileExt(f, "a", compression) as zipfp:
+        with zipfileextended.ZipFileExtended(f, "a", compression) as zipfp:
 
             self.assertEqual(zipfp.read(TESTFN), self.data)
             self.assertEqual(zipfp.read("another.name"), self.data)
@@ -65,7 +65,7 @@ class AbstractZipExtTestWithSourceFile:
             for i in infos:
                 self.assertEqual(i.file_size, len(self.data))
 
-        with zipext.ZipFileExt(f, "r", compression) as zipfp:
+        with zipfileextended.ZipFileExtended(f, "r", compression) as zipfp:
 
             #Check remaining data
             self.assertEqual(zipfp.read("another.name"), self.data, "Error reading file: another.name")
@@ -111,7 +111,7 @@ class AbstractZipExtTestWithSourceFile:
     def zip_rename_file_in_existing_test(self, f, compression):
         self.make_test_archive(f,compression)
 
-        with zipext.ZipFileExt(f, "a", compression) as zipfp:
+        with zipfileextended.ZipFileExtended(f, "a", compression) as zipfp:
             self.assertEqual(zipfp.read(TESTFN), self.data)
             self.assertEqual(zipfp.read("another.name"), self.data)
             self.assertEqual(zipfp.read("strfile"), self.data)
@@ -144,7 +144,7 @@ class AbstractZipExtTestWithSourceFile:
             for i in infos:
                 self.assertEqual(i.file_size, len(self.data))
 
-        with zipext.ZipFileExt(f, "r", compression) as zipfp:
+        with zipfileextended.ZipFileExtended(f, "r", compression) as zipfp:
             #Check remaining data
             self.assertEqual(zipfp.read("another.name"), self.data)
             self.assertEqual(zipfp.read("strfile"), self.data)
@@ -188,7 +188,7 @@ class AbstractZipExtTestWithSourceFile:
     def zip_remove_nonexistent_file_test(self, f, compression):
         self.make_test_archive(f,compression)
 
-        with zipext.ZipFileExt(f, "a", compression) as zipfp:
+        with zipfileextended.ZipFileExtended(f, "a", compression) as zipfp:
             self.assertEqual(zipfp.read(TESTFN), self.data)
             self.assertEqual(zipfp.read("another.name"), self.data)
             self.assertEqual(zipfp.read("strfile"), self.data)
@@ -202,7 +202,7 @@ class AbstractZipExtTestWithSourceFile:
     def zip_rename_nonexistent_file_test(self, f, compression):
         self.make_test_archive(f,compression)
 
-        with zipext.ZipFileExt(f, "a", compression) as zipfp:
+        with zipfileextended.ZipFileExtended(f, "a", compression) as zipfp:
             self.assertEqual(zipfp.read(TESTFN), self.data)
             self.assertEqual(zipfp.read("another.name"), self.data)
             self.assertEqual(zipfp.read("strfile"), self.data)
@@ -217,7 +217,7 @@ class AbstractZipExtTestWithSourceFile:
     def zip_rename_and_remove_wrong_permissions(self, f, compression):
         self.make_test_archive(f,compression)
 
-        with zipext.ZipFileExt(f, "r", compression) as zipfp:
+        with zipfileextended.ZipFileExtended(f, "r", compression) as zipfp:
             with self.assertRaises(RuntimeError):
                 zipfp.rename("another.name","test")
             with self.assertRaises(RuntimeError):
@@ -229,8 +229,8 @@ class AbstractZipExtTestWithSourceFile:
 
     def zip_clone_test(self, f, compression):
         self.make_test_archive(f,compression)
-        f = zipext.ZipFileExt(f)
-        with zipext.ZipFileExt.clone(f,TESTFN3) as zipfp:
+        f = zipfileextended.ZipFileExtended(f)
+        with zipfileextended.ZipFileExtended.clone(f,TESTFN3) as zipfp:
             # Check the namelist
             names = zipfp.namelist()
             self.assertEqual(len(names), 3)
@@ -257,8 +257,8 @@ class AbstractZipExtTestWithSourceFile:
 
     def zip_clone_with_filenames_test(self, f, compression):
         self.make_test_archive(f,compression)
-        with zipext.ZipFileExt(f) as f:
-            with zipext.ZipFileExt.clone(f,TESTFN3,["another.name","strfile"]) as zipfp:
+        with zipfileextended.ZipFileExtended(f) as f:
+            with zipfileextended.ZipFileExtended.clone(f,TESTFN3,["another.name","strfile"]) as zipfp:
                 # Check the namelist
                 names = zipfp.namelist()
                 self.assertEqual(len(names), 2)
@@ -284,9 +284,9 @@ class AbstractZipExtTestWithSourceFile:
 
     def zip_clone_with_fileinfos_test(self, f, compression):
         self.make_test_archive(f,compression)
-        f = zipext.ZipFileExt(f)
+        f = zipfileextended.ZipFileExtended(f)
         fileinfos = [info for info in f.infolist() if info.filename in ["another.name","strfile"]]
-        with zipext.ZipFileExt.clone(f,TESTFN3,fileinfos) as zipfp:
+        with zipfileextended.ZipFileExtended.clone(f,TESTFN3,fileinfos) as zipfp:
             # Check the namelist
             names = zipfp.namelist()
             self.assertEqual(len(names), 2)

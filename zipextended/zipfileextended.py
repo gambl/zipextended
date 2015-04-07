@@ -7,11 +7,11 @@ import shutil
 from zipfile import ZipFile
 from zipfile import (ZIP_DEFLATED, ZIP_STORED, ZIP_LZMA, ZIP64_LIMIT)
 
-class ZipFileExt(ZipFile):
+class ZipFileExtended(ZipFile):
     """
         Class with methods to open, read, write, remove, rename, close and list Zip files.
 
-        zip = ZipFileExt(file,mode="r", compression=ZIP_STORED, allowZip64=True)
+        zip = ZipFileExtended(file,mode="r", compression=ZIP_STORED, allowZip64=True)
 
 
         file: Either the path to the file, or a file-like object.
@@ -178,7 +178,7 @@ class ZipFileExt(ZipFile):
                 filenames_or_infolist = zipf.infolist()
             # if we are filtering based on filenames or need to commit changes
             # then create via ZipFile
-            with ZipFileExt(file,mode="w") as clone:
+            with ZipFileExtended(file,mode="w") as clone:
                 if isinstance(filenames_or_infolist[0], zipfile.ZipInfo):
                     infolist = filenames_or_infolist
                 else:
@@ -198,7 +198,7 @@ class ZipFileExt(ZipFile):
                 shutil.copyfileobj(zipf.fp,fp)
                 fp.seek(0)
 
-        clone = ZipFileExt(file,mode="a",compression=zipf.compression,allowZip64=zipf._allowZip64)
+        clone = ZipFileExtended(file,mode="a",compression=zipf.compression,allowZip64=zipf._allowZip64)
         badfile = clone.testzip()
         if(badfile):
             raise zipfile.BadZipFile("Error when cloning zipfile, failed zipfile check: {} file is corrupt".format(badfile))
@@ -232,7 +232,6 @@ class ZipFileExt(ZipFile):
                 pass
 
             #ensure the two match as the header is about to be re-written
-            #TODO we might need to retain the original unsanitised rename?
             zinfo.orig_filename = zinfo.filename
 
             zinfo.header_offset = self.fp.tell()    # update start of header
