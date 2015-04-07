@@ -1,4 +1,4 @@
-# zipextended - Zipfile Extension ![](https://travis-ci.org/gambl/zipfileext.svg)
+# zipextended - Zipfile Extension ![](https://travis-ci.org/gambl/zipextended.svg)
 
 Module provides class **ZipFileExtended** an extension of pythons zipfile implementation to support **rename** and **removal** of files from a zip archive.
 
