@@ -1,10 +1,10 @@
-# zipfileext - Zipfile Extension ![](https://travis-ci.org/gambl/zipfileext.svg)
+# zipextended - Zipfile Extension ![](https://travis-ci.org/gambl/zipfileext.svg)
 
-Module provides class **ZipFileExt** an extension of pythons zipfile implementation to support **rename** and **removal** of files.
+Module provides class **ZipFileExtended** an extension of pythons zipfile implementation to support **rename** and **removal** of files from a zip archive.
 
-ZipFileExt: Class with methods to open, read, write, remove, rename, close and list Zip files.
+ZipFileExtended: Class with methods to open, read, write, remove, rename, close and list Zip files.
 
-        zip = ZipFileExt(file,mode="r", compression=ZIP_STORED, allowZip64=True)
+        zip = ZipFileExtended(file,mode="r", compression=ZIP_STORED, allowZip64=True)
 
 
  `file`: Either the path to the file, or a file-like object.
@@ -22,7 +22,7 @@ ZipFileExt: Class with methods to open, read, write, remove, rename, close and l
  
 The main additional methods provided:
  
- `ZipFileExt.`**remove**(*zinfo_or_arcname*):
+ `ZipFileExtended.`**remove**(*zinfo_or_arcname*):
   Remove a member from the archive.
 
   Args:
@@ -32,7 +32,7 @@ The main additional methods provided:
   Raises:
   - `RuntimeError`: If attempting to modify an Zip archive that is closed.
   
-`ZipFileExt`.**rename**(*zinfo_or_arcname*, *filename*):
+`ZipFileExtended`.**rename**(*zinfo_or_arcname*, *filename*):
   Rename a member in the archive.
 
   Args:
