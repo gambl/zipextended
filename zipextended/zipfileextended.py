@@ -359,7 +359,7 @@ class ZipFileExtended(ZipFile):
 
         #clone the zip to create the up-to-date version - will verify and raise BadZipFile
         #error if it fails
-        clone = self.clone(self,clonefp)
+        clone = self.clone(clonefp)
 
         #Now we need to move files around
         #Is this a real file, and does it live on the same mount point?
