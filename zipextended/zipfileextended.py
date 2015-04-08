@@ -196,7 +196,7 @@ class ZipFileExtended(ZipFile):
 
 
     @classmethod
-    def clone(cls, zipf, file, filenames_or_infolist=None):
+    def clone(cls, zipf, file, filenames_or_infolist=None, ignore_hidden_files=False):
         """ Clone the a zip file using the given file (filename or filepointer).
 
         Args:
@@ -205,37 +205,60 @@ class ZipFileExtended(ZipFile):
             new zip file to.
           filenames_or_infolist (list(str), list(ZipInfo), optional): list of
             members from zipf to include in the new zip file.
+          ignore_hidden_files (boolean): flag to indicate wether hidden files
+            (data inbetween managed memebers of the archive) should be included.
 
         Returns:
             At new ZipFile object of the cloned zipfile open in append mode.
+            If copying hidden files then clone will attempt to maintain the
+            relative order between the files and members in the archive
 
         Raises:
             BadZipFile exception.
         """
-        if filenames_or_infolist or zipf.requires_commit:
+        # if we are filtering or need to commit changes then create via ZipFile
+        if filenames_or_infolist or zipf.requires_commit or ignore_hidden_files:
             if filenames_or_infolist is None:
                 filenames_or_infolist = zipf.infolist()
-            # if we are filtering based on filenames or need to commit changes
-            # then create via ZipFile
-            with ZipFileExtended(file,mode="w") as clone:
-                if isinstance(filenames_or_infolist[0], zipfile.ZipInfo):
-                    infolist = filenames_or_infolist
-                else:
-                    infolist = [zipinfo for zipinfo in zipf.infolist() if zipinfo.filename in filenames_or_infolist]
+            if not ignore_hidden_files:
+                hidden_files = zipf._hidden_files()
+            else:
+                hidden_files = None
 
-                for zipinfo in infolist:
-                    bytes = zipf.read_compressed(zipinfo.filename)
-                    clone.write_compressed(zipinfo,bytes)
+            if filenames_or_infolist and isinstance(filenames_or_infolist[0], zipfile.ZipInfo):
+                infolist = filenames_or_infolist
+            else:
+                infolist = [zipinfo for zipinfo in zipf.infolist() if zipinfo.filename in filenames_or_infolist]
+            #if there are hidden files then include these in the file list and
+            #maintain the relative order w.r.t. the managed files by sorting by
+            #their start position in the file
+            if hidden_files:
+                files = infolist + hidden_files
+                files.sort(key = lambda f: f._pos if hasattr(f,'_pos') else f.header_offset)
+            else:
+                files = infolist
+
+            with ZipFileExtended(file, mode="w") as clone:
+
+                for f in files:
+                    if isinstance(f,zipfile.ZipInfo):
+                        bytes = zipf.read_compressed(f.filename)
+                        clone.write_compressed(f,bytes)
+                    else:
+                        bytes = f.read(f.length)
+                        clone.write_hidden(bytes)
+
         else:
             #We are copying with no modifications - just copy bytes
-            zipf.fp.seek(0)
-            if isinstance(file,str):
-                with open(file,'wb+') as fp:
+            with zipf._lock:
+                zipf.fp.seek(0)
+                if isinstance(file,str):
+                    with open(file,'wb+') as fp:
+                        shutil.copyfileobj(zipf.fp,fp)
+                else:
+                    fp = file
                     shutil.copyfileobj(zipf.fp,fp)
-            else:
-                fp = file
-                shutil.copyfileobj(zipf.fp,fp)
-                fp.seek(0)
+                    fp.seek(0)
 
         clone = ZipFileExtended(file,mode="a",compression=zipf.compression,allowZip64=zipf._allowZip64)
         badfile = clone.testzip()
@@ -252,6 +275,16 @@ class ZipFileExtended(ZipFile):
             fp.read = types.MethodType(read,fp)
             fp._read1 = types.MethodType(_read1,fp)
             return fp.read(decompress=False)
+
+    def write_hidden(self, data):
+        """Write data to the file that contains the zipfile without adding it as
+        a managed entry of the zip"""
+        with self._lock:
+            if self._seekable:
+                self.fp.seek(self.start_dir)
+            self.fp.write(data)
+            self.fp.flush()
+            self.start_dir = self.fp.tell()
 
     def write_compressed(self, zinfo, data, compress_type=None):
         """Write a file into the archive using the already compressed bytes.
