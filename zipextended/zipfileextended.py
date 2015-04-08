@@ -382,27 +382,28 @@ class ZipFileExtended(ZipFile):
         #Is it a file-like stream?
         elif hasattr(self.fp,'write'):
             #self.fp is a stream or lives on another mount point
-            try:
-                self.fp.seek(0)
-                for b in self.fp:
-                    backupfp.write(b)
-            except:
-                raise RuntimeError("Failed to commit updates to zipfile")
-            try:
-                #Set up to write new bytes
-                self.fp.seek(0)
-                self.fp.truncate() #might be shorter so truncate
-                with open(clone.filename,'rb') as fp:
-                    for b in fp:
+            with self._lock:
+                try:
+                    self.fp.seek(0)
+                    for b in self.fp:
+                        backupfp.write(b)
+                except:
+                    raise RuntimeError("Failed to commit updates to zipfile")
+                try:
+                    #Set up to write new bytes
+                    self.fp.seek(0)
+                    self.fp.truncate() #might be shorter so truncate
+                    with open(clone.filename,'rb') as fp:
+                        for b in fp:
+                            self.fp.write(b)
+                    self.reset()
+                except:
+                    backupfp.seek(0)
+                    self.fp.seek(0)
+                    for b in backup.fp:
                         self.fp.write(b)
-                self.reset()
-            except:
-                backupfp.seek(0)
-                self.fp.seek(0)
-                for b in backup.fp:
-                    self.fp.write(b)
-                backupfp.close()
-                raise RuntimeError("Failed to commit updates to zipfile")
+                    backupfp.close()
+                    raise RuntimeError("Failed to commit updates to zipfile")
             backupfp.close()
         else:
             #failed to commit
