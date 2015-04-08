@@ -297,11 +297,9 @@ class ZipFileExtended(ZipFile):
                 "Attempt to write to ZIP archive that was already closed")
 
         with self._lock:
-            try:
+
+            if self._seekable:
                 self.fp.seek(self.start_dir)
-            except (AttributeError, io.UnsupportedOperation):
-                # Some file-like objects can provide tell() but not seek()
-                pass
 
             #ensure the two match as the header is about to be re-written
             zinfo.orig_filename = zinfo.filename
