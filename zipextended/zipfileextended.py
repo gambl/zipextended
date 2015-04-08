@@ -7,6 +7,7 @@ import shutil
 from zipfile import ZipFile
 from zipfile import (ZIP_DEFLATED, ZIP_STORED, ZIP_LZMA, ZIP64_LIMIT)
 import struct
+import operator
 
 class ZipFileExtended(ZipFile):
     """
@@ -35,54 +36,42 @@ class ZipFileExtended(ZipFile):
         self.requires_commit = False
 
     def _hidden_files(self):
-
-        file_boundaries = []
+        """Find any files that are hidden between memebers of this archive"""
         #Establish the file boundaries, start - end, for each file
+        #initial file boundaries are the start and end of the zip up to the
+        #central directory
+        file_boundaries = [{"start": 0, "end": 0},{"start": self.start_dir, "end": self.start_dir}]
         for fileinfo in self.filelist:
 
-            #zef_file = zipfile._SharedFile(self.fp, fileinfo.header_offset, self._fpclose, self._lock)
-
-            # get the file header:
-            # fheader = zef_file.read(zipfile.sizeFileHeader)
-            # if len(fheader) != zipfile.sizeFileHeader:
-            #     raise BadZipFile("Truncated file header")
-            # fheader = struct.unpack(zipfile.structFileHeader, fheader)
-            # if fheader[zipfile._FH_SIGNATURE] != zipfile.stringFileHeader:
-            #     raise BadZipFile("Bad magic number for file header")
             #establish the end_offset
             end_offset = fileinfo.header_offset
             end_offset += zipfile.sizeFileHeader
             end_offset += len(fileinfo.orig_filename)
             end_offset += len(fileinfo.extra)
-            #end_offset += fheader[zipfile._FH_FILENAME_LENGTH]
-            #end_offset += fheader[zipfile._FH_EXTRA_FIELD_LENGTH]
             end_offset += fileinfo.compress_size
-
             is_encrypted = fileinfo.flag_bits & 0x1
             if is_encrypted:
                 end_offset += 12
 
-            #add to the collection of file boundaries
+            #add to the file boundaries
             file_boundaries.append({"start" : fileinfo.header_offset, "end" : end_offset})
 
-        current = {"start": 0, "end": 0}
+        #Look for data inbetween the file boundaries
+        file_boundaries.sort(key=operator.itemgetter("start"))
+        current = file_boundaries.pop(0)
         hidden_files = []
-        for f in list(file_boundaries):
-            next = f
+        for next in file_boundaries:
             if current["end"] > next["start"]:
                 #next is contained within current |--c.s---n.s--n.e---c.e--|
-                file_boundaries.remove(next)
                 continue
             elif current["end"] != next["start"]:
                 #There is some data inbetween
-                print(current["end"])
-                hidden_files.append({"start": current["end"],"end": next["start"]})
-                self.fp.seek(current["end"])
-                bytes = self.fp.read(next["start"] - current["end"])
-                print(bytes)
-            current = f
+                file = zipfile._SharedFile(self.fp, current["end"], self._fpclose, self._lock)
+                file.length = next["start"] - current["end"]
+                hidden_files.append(file)
+            current = next
 
-        return (file_boundaries, hidden_files)
+        return hidden_files
 
     def _renamecheck(self, filename):
         """Check for errors before writing a file to the archive."""
