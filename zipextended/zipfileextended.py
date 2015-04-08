@@ -195,16 +195,14 @@ class ZipFileExtended(ZipFile):
             self._fpclose(fp)
 
 
-    @classmethod
-    def clone(cls, zipf, file, filenames_or_infolist=None, ignore_hidden_files=False):
+    def clone(self, file, filenames_or_infolist=None, ignore_hidden_files=False):
         """ Clone the a zip file using the given file (filename or filepointer).
 
         Args:
-          zipf (ZipFile): the ZipFile to be cloned.
           file (File, str): file-like object or filename of file to write the
             new zip file to.
           filenames_or_infolist (list(str), list(ZipInfo), optional): list of
-            members from zipf to include in the new zip file.
+            members from this zip file to include in the new zip file.
           ignore_hidden_files (boolean): flag to indicate wether hidden files
             (data inbetween managed memebers of the archive) should be included.
 
@@ -217,18 +215,18 @@ class ZipFileExtended(ZipFile):
             BadZipFile exception.
         """
         # if we are filtering or need to commit changes then create via ZipFile
-        if filenames_or_infolist or zipf.requires_commit or ignore_hidden_files:
+        if filenames_or_infolist or self.requires_commit or ignore_hidden_files:
             if filenames_or_infolist is None:
-                filenames_or_infolist = zipf.infolist()
+                filenames_or_infolist = self.infolist()
             if not ignore_hidden_files:
-                hidden_files = zipf._hidden_files()
+                hidden_files = self._hidden_files()
             else:
                 hidden_files = None
 
             if filenames_or_infolist and isinstance(filenames_or_infolist[0], zipfile.ZipInfo):
                 infolist = filenames_or_infolist
             else:
-                infolist = [zipinfo for zipinfo in zipf.infolist() if zipinfo.filename in filenames_or_infolist]
+                infolist = [zipinfo for zipinfo in self.infolist() if zipinfo.filename in filenames_or_infolist]
             #if there are hidden files then include these in the file list and
             #maintain the relative order w.r.t. the managed files by sorting by
             #their start position in the file
@@ -242,7 +240,7 @@ class ZipFileExtended(ZipFile):
 
                 for f in files:
                     if isinstance(f,zipfile.ZipInfo):
-                        bytes = zipf.read_compressed(f.filename)
+                        bytes = self.read_compressed(f.filename)
                         clone.write_compressed(f,bytes)
                     else:
                         bytes = f.read(f.length)
@@ -250,17 +248,17 @@ class ZipFileExtended(ZipFile):
 
         else:
             #We are copying with no modifications - just copy bytes
-            with zipf._lock:
-                zipf.fp.seek(0)
+            with self._lock:
+                self.fp.seek(0)
                 if isinstance(file,str):
                     with open(file,'wb+') as fp:
-                        shutil.copyfileobj(zipf.fp,fp)
+                        shutil.copyfileobj(self.fp,fp)
                 else:
                     fp = file
-                    shutil.copyfileobj(zipf.fp,fp)
+                    shutil.copyfileobj(self.fp,fp)
                     fp.seek(0)
 
-        clone = ZipFileExtended(file,mode="a",compression=zipf.compression,allowZip64=zipf._allowZip64)
+        clone = ZipFileExtended(file,mode="a",compression=self.compression,allowZip64=self._allowZip64)
         badfile = clone.testzip()
         if(badfile):
             raise zipfile.BadZipFile("Error when cloning zipfile, failed zipfile check: {} file is corrupt".format(badfile))
