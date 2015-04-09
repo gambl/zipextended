@@ -2,6 +2,7 @@ import os
 import io
 from tempfile import NamedTemporaryFile, TemporaryFile
 import unittest
+import sys
 
 # Python<=3.2 doesn't have FileNotFound and NotADirectory
 try:
@@ -61,3 +62,27 @@ def get_files(test):
     with io.BytesIO() as f:
         yield f
         test.assertFalse(f.closed)
+
+
+TEST_HOME_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# TEST_DATA_DIR is used as a target download location for remote resources
+TEST_DATA_DIR = os.path.join(TEST_HOME_DIR, "data")
+
+def findfile(filename, subdir=None):
+    """Try to find a file on sys.path or in the test directory.  If it is not
+    found the argument passed to the function is returned (this does not
+    necessarily signal failure; could still be the legitimate path).
+
+    Setting *subdir* indicates a relative path to use to find the file
+    rather than looking directly in the path directories.
+    """
+    if os.path.isabs(filename):
+        return filename
+    if subdir is not None:
+        filename = os.path.join(subdir, filename)
+    path = [TEST_HOME_DIR] + sys.path
+    for dn in path:
+        fn = os.path.join(dn, filename)
+        if os.path.exists(fn): return fn
+    return filename

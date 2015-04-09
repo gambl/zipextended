@@ -4,12 +4,12 @@ import unittest
 from tempfile import TemporaryFile
 from random import randint, random, getrandbits
 from tempfile import NamedTemporaryFile
-#from test.support import (TESTFN, unlink)
 import io
 import os
 
-from .support import (TESTFN, TESTFN2, TESTFN3, unlink, get_files,requires_zlib,
-                      requires_gzip, requires_bz2, requires_lzma)
+from .support import (TESTFN, TESTFN2, TESTFN3, unlink, get_files, requires_zlib,
+                      requires_gzip, requires_bz2, requires_lzma, findfile)
+
 
 class AbstractZipExtTestWithSourceFile:
 
@@ -305,6 +305,89 @@ class AbstractZipExtTestWithSourceFile:
                 self.assertEqual(len(names), 2)
                 for i in infos:
                     self.assertEqual(i.file_size, len(self.data))
+
+    def test_hidden_files(self):
+        f = findfile("zip_hiddenfiles.zip")
+        hidden_data = [b'This is a prefix.\n',
+                       b'Intermediate data\n',
+                       b'PK\x03\x04\x14\x00\x00\x00\x00\x00\x0cgYF\xf39@\x12\x0c\x00\x00\x00\x0c\x00\x00\x00\x04\x00\x00\x00fourHidden file\n']
+
+        with zipfileextended.ZipFileExtended(f) as f:
+            hidden_files = f._hidden_files()
+            self.assertEqual(len(hidden_files), 3)
+
+            for file, hidden in zip(hidden_files, hidden_data):
+                data = file.read(file.length)
+                self.assertEqual(data, hidden)
+
+    def test_clone_with_hidden_files(self):
+        f = findfile("zip_hiddenfiles.zip")
+        hidden_data = [b'This is a prefix.\n',
+                       b'Intermediate data\n',
+                       b'PK\x03\x04\x14\x00\x00\x00\x00\x00\x0cgYF\xf39@\x12\x0c\x00\x00\x00\x0c\x00\x00\x00\x04\x00\x00\x00fourHidden file\n']
+
+        with zipfileextended.ZipFileExtended(f) as f:
+            original_files = {fileinfo.filename: f.read(fileinfo.filename)
+                              for fileinfo in f.infolist()}
+            with f.clone(TESTFN3, filenames_or_infolist=f.infolist()) as zipfp:
+                # Check the namelist
+                names = zipfp.namelist()
+                self.assertEqual(len(names), 4)
+                # check the hidden files persisted
+                hidden_files = zipfp._hidden_files()
+                self.assertEqual(len(hidden_files), 3)
+
+                for file, hidden in zip(hidden_files, hidden_data):
+                    data = file.read(file.length)
+                    self.assertEqual(data, hidden)
+                names = zipfp.namelist()
+                self.assertIn("one", names)
+                self.assertIn("two", names)
+                self.assertIn("three", names)
+                self.assertIn("five", names)
+                self.assertNotIn("four", names)
+
+                # check data
+                new_files = {fileinfo.filename: zipfp.read(fileinfo.filename)
+                             for fileinfo in zipfp.infolist()}
+                for name, data in new_files.items():
+                    self.assertEqual(data, original_files[name])
+                # Check infolist
+                infos = zipfp.infolist()
+                names = [i.filename for i in infos]
+                self.assertEqual(len(names), 4)
+
+    def test_clone_ignore_hidden_files(self):
+        f = findfile("zip_hiddenfiles.zip")
+        with zipfileextended.ZipFileExtended(f) as f:
+            original_files = {fileinfo.filename: f.read(fileinfo.filename)
+                              for fileinfo in f.infolist()}
+            with f.clone(TESTFN3, ignore_hidden_files=True) as zipfp:
+                # Check the namelist
+                names = zipfp.namelist()
+                self.assertEqual(len(names), 4)
+
+                # check the hidden files persisted
+                hidden_files = zipfp._hidden_files()
+                self.assertEqual(len(hidden_files), 0)
+
+                names = zipfp.namelist()
+                self.assertIn("one", names)
+                self.assertIn("two", names)
+                self.assertIn("three", names)
+                self.assertIn("five", names)
+                self.assertNotIn("four", names)
+
+                # Check data
+                new_files = {fileinfo.filename: zipfp.read(fileinfo.filename)
+                             for fileinfo in zipfp.infolist()}
+                for name, data in new_files.items():
+                    self.assertEqual(data, original_files[name])
+
+                # Check infolist
+                infos = zipfp.infolist()
+                names = [i.filename for i in infos]
+                self.assertEqual(len(names), 4)
 
     def tearDown(self):
         unlink(TESTFN)
