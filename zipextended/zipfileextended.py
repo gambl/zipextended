@@ -9,6 +9,7 @@ from zipfile import (ZIP_DEFLATED, ZIP_STORED, ZIP_LZMA, ZIP64_LIMIT)
 import struct
 import operator
 
+
 class ZipFileExtended(ZipFile):
     """
         Class with methods to open, read, write, remove, rename, close and list Zip files.
@@ -34,16 +35,19 @@ class ZipFileExtended(ZipFile):
     def __init__(self, file, mode="r", compression=zipfile.ZIP_STORED, allowZip64=True):
         super().__init__(file,mode=mode,compression=compression,allowZip64=allowZip64)
         self.requires_commit = False
+        self.removed_filelist = []
 
     def _hidden_files(self):
         """Find any files that are hidden between memebers of this archive"""
-        #Establish the file boundaries, start - end, for each file
-        #initial file boundaries are the start and end of the zip up to the
-        #central directory
-        file_boundaries = [{"start": 0, "end": 0},{"start": self.start_dir, "end": self.start_dir}]
-        for fileinfo in self.filelist:
+        # Establish the file boundaries, start - end, for each file
+        # initial file boundaries are the start and end of the zip up to the
+        # central directory
+        file_boundaries = [{"start": 0, "end": 0},
+                           {"start": self.start_dir, "end": self.start_dir}]
+        # Include removed files - we don't want to count them as hidden
+        for fileinfo in self.filelist + self.removed_filelist:
 
-            #establish the end_offset
+            # establish the end_offset
             end_offset = fileinfo.header_offset
             end_offset += zipfile.sizeFileHeader
             end_offset += len(fileinfo.orig_filename)
@@ -53,19 +57,20 @@ class ZipFileExtended(ZipFile):
             if is_encrypted:
                 end_offset += 12
 
-            #add to the file boundaries
-            file_boundaries.append({"start" : fileinfo.header_offset, "end" : end_offset})
+            # add to the file boundaries
+            file_boundaries.append({"start": fileinfo.header_offset,
+                                    "end": end_offset})
 
-        #Look for data inbetween the file boundaries
+        # Look for data inbetween the file boundaries
         file_boundaries.sort(key=operator.itemgetter("start"))
         current = file_boundaries.pop(0)
         hidden_files = []
         for next in file_boundaries:
             if current["end"] > next["start"]:
-                #next is contained within current |--c.s---n.s--n.e---c.e--|
+                # next is contained within current |--c.s---n.s--n.e---c.e--|
                 continue
             elif current["end"] != next["start"]:
-                #There is some data inbetween
+                # There is some data inbetween
                 file = zipfile._SharedFile(self.fp, current["end"], self._fpclose, self._lock)
                 file.length = next["start"] - current["end"]
                 hidden_files.append(file)
@@ -112,12 +117,13 @@ class ZipFileExtended(ZipFile):
 
         if isinstance(zinfo_or_arcname, zipfile.ZipInfo):
             zinfo = zinfo_or_arcname
-            #perform an existence check
+            # perform an existence check
             self.getinfo(zinfo.filename)
         else:
             zinfo = self.getinfo(zinfo_or_arcname)
 
         self.filelist.remove(zinfo)
+        self.removed_filelist.append(zinfo)
         del self.NameToInfo[zinfo.filename]
         self._didModify = True
         self.requires_commit = True
@@ -154,7 +160,7 @@ class ZipFileExtended(ZipFile):
 
         if isinstance(zinfo_or_arcname, zipfile.ZipInfo):
             zinfo = zinfo_or_arcname
-            #perform an existence check
+            # perform an existence check
             self.getinfo(zinfo.filename)
         else:
             zinfo = self.getinfo(zinfo_or_arcname)
@@ -164,7 +170,6 @@ class ZipFileExtended(ZipFile):
 
         self._didModify = True
         self.requires_commit = True
-
 
     def close(self):
         """Close the file, and for mode "w", 'x' and "a" write the ending
@@ -226,10 +231,11 @@ class ZipFileExtended(ZipFile):
             if filenames_or_infolist and isinstance(filenames_or_infolist[0], zipfile.ZipInfo):
                 infolist = filenames_or_infolist
             else:
-                infolist = [zipinfo for zipinfo in self.infolist() if zipinfo.filename in filenames_or_infolist]
-            #if there are hidden files then include these in the file list and
-            #maintain the relative order w.r.t. the managed files by sorting by
-            #their start position in the file
+                infolist = [zipinfo for zipinfo in self.infolist()
+                            if zipinfo.filename in filenames_or_infolist]
+            # if there are hidden files then include these in the file list and
+            # maintain the relative order w.r.t. the managed files by sorting by
+            # their start position in the file
             if hidden_files:
                 files = infolist + hidden_files
                 files.sort(key = lambda f: f._pos if hasattr(f,'_pos') else f.header_offset)
@@ -244,21 +250,22 @@ class ZipFileExtended(ZipFile):
                         clone.write_compressed(f,bytes)
                     else:
                         bytes = f.read(f.length)
-                        clone.write_hidden(bytes)
+                        clone._write_hidden(bytes)
 
         else:
-            #We are copying with no modifications - just copy bytes
+            # We are copying with no modifications - just copy bytes
             with self._lock:
                 self.fp.seek(0)
-                if isinstance(file,str):
-                    with open(file,'wb+') as fp:
-                        shutil.copyfileobj(self.fp,fp)
+                if isinstance(file, str):
+                    with open(file, 'wb+') as fp:
+                        shutil.copyfileobj(self.fp, fp)
                 else:
                     fp = file
-                    shutil.copyfileobj(self.fp,fp)
+                    shutil.copyfileobj(self.fp, fp)
                     fp.seek(0)
 
-        clone = ZipFileExtended(file,mode="a",compression=self.compression,allowZip64=self._allowZip64)
+        clone = ZipFileExtended(file, mode="a", compression=self.compression,
+                                allowZip64=self._allowZip64)
         badfile = clone.testzip()
         if(badfile):
             raise zipfile.BadZipFile("Error when cloning zipfile, failed zipfile check: {} file is corrupt".format(badfile))
@@ -267,22 +274,12 @@ class ZipFileExtended(ZipFile):
     def read_compressed(self, name, pwd=None):
         """Return file bytes uncompressed for name."""
         with self.open(name, "r", pwd) as fp:
-        #Replace the read, _read1 methods for the ZipExtFile file pointer fp
-	    #with those defined in this module to support reading the compressed
-	    #version of the file
-            fp.read = types.MethodType(read,fp)
-            fp._read1 = types.MethodType(_read1,fp)
+            # Replace the read, _read1 methods for the ZipExtFile file pointer fp
+            # with those defined in this module to support reading the compressed
+            # version of the file
+            fp.read = types.MethodType(read, fp)
+            fp._read1 = types.MethodType(_read1, fp)
             return fp.read(decompress=False)
-
-    def write_hidden(self, data):
-        """Write data to the file that contains the zipfile without adding it as
-        a managed entry of the zip"""
-        with self._lock:
-            if self._seekable:
-                self.fp.seek(self.start_dir)
-            self.fp.write(data)
-            self.fp.flush()
-            self.start_dir = self.fp.tell()
 
     def write_compressed(self, zinfo, data, compress_type=None):
         """Write a file into the archive using the already compressed bytes.
@@ -299,7 +296,7 @@ class ZipFileExtended(ZipFile):
             if self._seekable:
                 self.fp.seek(self.start_dir)
 
-            #ensure the two match as the header is about to be re-written
+            # ensure the two match as the header is about to be re-written
             zinfo.orig_filename = zinfo.filename
 
             zinfo.header_offset = self.fp.tell()    # update start of header
@@ -309,8 +306,8 @@ class ZipFileExtended(ZipFile):
                 # Compressed data includes an end-of-stream (EOS) marker
                 zinfo.flag_bits |= 0x02
 
-            #TODO actually requires a slightly less stringent _writecheck as
-            #we don't care about the compression type used
+            # TODO actually requires a slightly less stringent _writecheck as
+            # we don't care about the compression type used
             self._writecheck(zinfo)
             self._didModify = True
 
@@ -332,11 +329,21 @@ class ZipFileExtended(ZipFile):
             self.filelist.append(zinfo)
             self.NameToInfo[zinfo.filename] = zinfo
 
+    def _write_hidden(self, data):
+        """Write data to the file that contains the zipfile without adding it as
+        a managed entry of the zip"""
+        with self._lock:
+            if self._seekable:
+                self.fp.seek(self.start_dir)
+            self.fp.write(data)
+            self.fp.flush()
+            self.start_dir = self.fp.tell()
 
-    def reset(self):
-        #Reset modification and commit flags
+    def _reset(self):
+        # Reset modification and commit flags
         self._didModify = False
         self.requires_commit = False
+        self.removed_filelist = []
         # Reread contents
         self._RealGetContents()
         # seek to start of directory ready for subsequent writes
@@ -344,8 +351,8 @@ class ZipFileExtended(ZipFile):
 
 
     def commit(self):
-        #zip will be validated by clone
-        #Try to create tempfiles in same directory first
+        # zip will be validated by clone
+        # Try to create tempfiles in same directory first
         if not self._filePassed:
             dir = os.path.dirname(self.filename)
         else:
@@ -357,15 +364,17 @@ class ZipFileExtended(ZipFile):
             clonefp = tempfile.NamedTemporaryFile(delete=False)
             backupfp = tempfile.NamedTemporaryFile(delete=False)
 
-        #clone the zip to create the up-to-date version - will verify and raise BadZipFile
-        #error if it fails
+        # clone the zip to create the up-to-date version -
+        # will verify and raise BadZipFile error if it fails
         clone = self.clone(clonefp)
 
-        #Now we need to move files around
-        #Is this a real file, and does it live on the same mount point?
-        if not self._filePassed and os.path.exists(self.filename) and (find_mount_point(self.filename) == find_mount_point(clone.filename)):
-            #if things are filebased then we can used the OS to move files around.
-            #mv self.filename to backupfp, new to self.filename, and then remove backupfp
+        # Now we need to move files around
+        # Is this a real file, and does it live on the same mount point?
+        if(not self._filePassed and os.path.exists(self.filename) and
+           (find_mount_point(self.filename) == find_mount_point(clone.filename))):
+            # if things are filebased then we can used the OS to move files
+            # around. mv self.filename to backupfp, new to self.filename,
+            # and then remove backupfp
             backupfp.close()
             try:
                 os.rename(self.filename, backupfp.name)
@@ -373,13 +382,13 @@ class ZipFileExtended(ZipFile):
                 raise RuntimeError("Failed to commit updates to zipfile")
             try:
                 os.rename(clone.filename, self.filename)
-                self.reset()
+                self._reset()
             except:
                 os.rename(backupfp.name, self.filename)
                 raise RuntimeError("Failed to commit updates to zipfile")
-        #Is it a file-like stream?
-        elif hasattr(self.fp,'write'):
-            #self.fp is a stream or lives on another mount point
+        # Is it a file-like stream?
+        elif hasattr(self.fp, 'write'):
+            # self.fp is a stream or lives on another mount point
             with self._lock:
                 try:
                     self.fp.seek(0)
@@ -388,13 +397,13 @@ class ZipFileExtended(ZipFile):
                 except:
                     raise RuntimeError("Failed to commit updates to zipfile")
                 try:
-                    #Set up to write new bytes
+                    # Set up to write new bytes
                     self.fp.seek(0)
-                    self.fp.truncate() #might be shorter so truncate
-                    with open(clone.filename,'rb') as fp:
+                    self.fp.truncate()  # might be shorter so truncate
+                    with open(clone.filename, 'rb') as fp:
                         for b in fp:
                             self.fp.write(b)
-                    self.reset()
+                    self._reset()
                 except:
                     backupfp.seek(0)
                     self.fp.seek(0)
@@ -404,22 +413,24 @@ class ZipFileExtended(ZipFile):
                     raise RuntimeError("Failed to commit updates to zipfile")
             backupfp.close()
         else:
-            #failed to commit
+            # failed to commit
             raise RuntimeError("Failed to commit updates to zipfile")
-        #cleanup
+        # cleanup
         if os.path.exists(backupfp.name):
             os.unlink(backupfp.name)
 
+
 def read(self, n=-1, decompress=True):
     """Read and return up to n bytes.
-    If the argument is omitted, None, or negative, data is read and returned until EOF is reached..
+    If the argument is omitted, None, or negative, data is read and returned
+    until EOF is reached..
     """
     if n is None or n < 0:
         buf = self._readbuffer[self._offset:]
         self._readbuffer = b''
         self._offset = 0
         while not self._eof:
-            buf += self._read1(self.MAX_N,decompress=decompress)
+            buf += self._read1(self.MAX_N, decompress=decompress)
         return buf
 
     end = n + self._offset
@@ -433,7 +444,7 @@ def read(self, n=-1, decompress=True):
     self._readbuffer = b''
     self._offset = 0
     while n > 0 and not self._eof:
-        data = self._read1(n,decompress=decompress)
+        data = self._read1(n, decompress=decompress)
         if n < len(data):
             self._readbuffer = data
             self._offset = n
@@ -442,6 +453,7 @@ def read(self, n=-1, decompress=True):
         buf += data
         n -= len(data)
     return buf
+
 
 def _read1(self, n, decompress=True):
     # Read up to n compressed bytes with at most one read() system call,
@@ -476,10 +488,11 @@ def _read1(self, n, decompress=True):
     self._left -= len(data)
     if self._left <= 0:
         self._eof = True
-    #We can only check the crc if we are decompressing
+    # We can only check the crc if we are decompressing
     if decompress:
         self._update_crc(data)
     return data
+
 
 def find_mount_point(path):
     path = os.path.abspath(path)
