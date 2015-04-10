@@ -212,7 +212,8 @@ class ZipFileExtended(ZipFile):
             (data inbetween managed memebers of the archive) should be included.
 
         Returns:
-            At new ZipFile object of the cloned zipfile open in append mode.
+            A new ZipFile object of the cloned zipfile open in append mode.
+
             If copying hidden files then clone will attempt to maintain the
             relative order between the files and members in the archive
 
@@ -220,49 +221,27 @@ class ZipFileExtended(ZipFile):
             BadZipFile exception.
         """
         # if we are filtering or need to commit changes then create via ZipFile
-        if filenames_or_infolist or self.requires_commit or ignore_hidden_files:
-            if filenames_or_infolist is None:
-                filenames_or_infolist = self.infolist()
-            if not ignore_hidden_files:
-                hidden_files = self._hidden_files()
-            else:
-                hidden_files = None
+        if(filenames_or_infolist or self.requires_commit or
+           ignore_hidden_files):
 
-            if filenames_or_infolist and isinstance(filenames_or_infolist[0], zipfile.ZipInfo):
-                infolist = filenames_or_infolist
-            else:
-                infolist = [zipinfo for zipinfo in self.infolist()
-                            if zipinfo.filename in filenames_or_infolist]
-            # if there are hidden files then include these in the file list and
-            # maintain the relative order w.r.t. the managed files by sorting by
-            # their start position in the file
-            if hidden_files:
-                files = infolist + hidden_files
-                files.sort(key = lambda f: f._pos if hasattr(f,'_pos') else f.header_offset)
-            else:
-                files = infolist
+            files = self._gather_and_filter_files(
+                filenames_or_infolist=filenames_or_infolist,
+                ignore_hidden_files=ignore_hidden_files,
+                sort=True)
 
             with ZipFileExtended(file, mode="w") as clone:
 
                 for f in files:
-                    if isinstance(f,zipfile.ZipInfo):
+                    if isinstance(f, zipfile.ZipInfo):
                         bytes = self.read_compressed(f.filename)
-                        clone.write_compressed(f,bytes)
+                        clone.write_compressed(f, bytes)
                     else:
                         bytes = f.read(f.length)
                         clone._write_hidden(bytes)
 
         else:
             # We are copying with no modifications - just copy bytes
-            with self._lock:
-                self.fp.seek(0)
-                if isinstance(file, str):
-                    with open(file, 'wb+') as fp:
-                        shutil.copyfileobj(self.fp, fp)
-                else:
-                    fp = file
-                    shutil.copyfileobj(self.fp, fp)
-                    fp.seek(0)
+            self._quick_clone(file)
 
         clone = ZipFileExtended(file, mode="a", compression=self.compression,
                                 allowZip64=self._allowZip64)
@@ -270,6 +249,60 @@ class ZipFileExtended(ZipFile):
         if(badfile):
             raise zipfile.BadZipFile("Error when cloning zipfile, failed zipfile check: {} file is corrupt".format(badfile))
         return clone
+
+    def _quick_clone(self, file):
+        """
+        Perform a quicker file copy based clone of this zipfile into the
+        given file
+        """
+        with self._lock:
+            self.fp.seek(0)
+            if isinstance(file, str):
+                with open(file, 'wb+') as fp:
+                    shutil.copyfileobj(self.fp, fp)
+            else:
+                fp = file
+                shutil.copyfileobj(self.fp, fp)
+                fp.seek(0)
+
+    def _gather_and_filter_files(self, filenames_or_infolist=None,
+                                 ignore_hidden_files=False, sort=False):
+        """
+        Gather together all of the files in this archive.
+        Filter based files in the archive that match those in
+        filenames_or_infolist and ignore_hidden_files flag.
+        Returns:
+          A list containing fileinfo instances for managed files and
+          _SharedFile instances for hidden files.
+
+          If sort=True the list is ordered by each file's offset in the
+          archive.
+        """
+        if filenames_or_infolist is None:
+            filenames_or_infolist = self.infolist()
+        if not ignore_hidden_files:
+            hidden_files = self._hidden_files()
+        else:
+            hidden_files = None
+
+        if(filenames_or_infolist and
+           isinstance(filenames_or_infolist[0], zipfile.ZipInfo)):
+            infolist = filenames_or_infolist
+        else:
+            infolist = [zipinfo for zipinfo in self.infolist()
+                        if zipinfo.filename in filenames_or_infolist]
+        # if there are hidden files then include these in the file list and
+        # maintain the relative order w.r.t. the managed files by sorting by
+        # their start position in the file
+        if hidden_files:
+            files = infolist + hidden_files
+        else:
+            files = infolist
+
+        if sort:
+            files.sort(key=lambda f: f._pos if hasattr(f, '_pos') else f.header_offset)
+
+        return files
 
     def read_compressed(self, name, pwd=None):
         """Return file bytes uncompressed for name."""
